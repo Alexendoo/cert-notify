@@ -1,6 +1,8 @@
 package store
 
-import "golang.org/x/net/idna"
+import (
+	"golang.org/x/net/idna"
+)
 
 // StringSet is a simple set of unique strings
 type StringSet map[string]struct{}
@@ -22,6 +24,9 @@ var profiles = []*idna.Profile{
 	idna.Lookup,
 }
 
+// stringsFromDomain returns the various possible encodings of the domain,
+// currently the raw punycode and display IDNA profiles. The strings are
+// reversed to enable prefix scanning
 func stringsFromDomain(domain string) (StringSet, error) {
 	set := StringSet{}
 
