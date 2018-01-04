@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/Alexendoo/cert-notify/ctlog"
-	"github.com/boltdb/bolt"
 )
 
 func (s *Store) SetLogs(logs []*ctlog.Log) error {
@@ -14,19 +13,18 @@ func (s *Store) SetLogs(logs []*ctlog.Log) error {
 		return err
 	}
 
-	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket(bLogs).Put(bLogs, logsJSON)
-	})
+	return s.set(bLogs, bLogs, logsJSON)
 }
 
 func (s *Store) GetLogs() ([]*ctlog.Log, error) {
 	logs := []*ctlog.Log{}
 
-	err := s.db.View(func(tx *bolt.Tx) error {
-		logsJSON := tx.Bucket(bLogs).Get(bLogs)
+	logsJSON, err := s.get(bLogs, bLogs)
+	if err != nil {
+		return nil, err
+	}
 
-		return json.Unmarshal(logsJSON, logs)
-	})
+	err = json.Unmarshal(logsJSON, logs)
 
 	return logs, err
 }

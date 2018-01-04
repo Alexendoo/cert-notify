@@ -30,12 +30,34 @@ func New(path string) (*Store, error) {
 	return store, err
 }
 
-func (s *Store) Close() error {
-	return s.db.Close()
+// set bucket[key] = value
+func (s *Store) set(bucket, key, value []byte) error {
+	tx, err := s.db.Begin(true)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Bucket(bucket).Put(key, value)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (s *Store) DB() *bolt.DB {
-	return s.db
+// get bucket[key]
+func (s *Store) get(bucket, key []byte) ([]byte, error) {
+	tx, err := s.db.Begin(false)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx.Bucket(bucket).Get(key), tx.Rollback()
+}
+
+func (s *Store) Close() error {
+	return s.db.Close()
 }
 
 func createBuckets(tx *bolt.Tx, buckets ...[]byte) error {
