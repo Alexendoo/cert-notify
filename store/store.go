@@ -16,6 +16,7 @@ var (
 	// buckets
 	bDomains = []byte{0x00}
 	bUsers   = []byte{0x01}
+	bLogs    = []byte{0x02}
 )
 
 func New(path string) (*Store, error) {
@@ -25,14 +26,7 @@ func New(path string) (*Store, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists(bDomains)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.CreateBucketIfNotExists(bUsers)
-
-		return err
+		return createBuckets(tx, bDomains, bUsers, bLogs)
 	})
 
 	store := &Store{db}
@@ -107,4 +101,16 @@ func (s *Store) Close() error {
 
 func (s *Store) DB() *bolt.DB {
 	return s.db
+}
+
+func createBuckets(tx *bolt.Tx, buckets ...[]byte) error {
+	for _, bucket := range buckets {
+		_, err := tx.CreateBucketIfNotExists(bucket)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
