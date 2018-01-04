@@ -32,7 +32,6 @@ func main() {
 
 	s, err := store.New("z.db")
 	fmt.Println(err)
-
 	sub := &webpush.Subscription{
 		Auth:     []byte{0x30, 0x32, 0x53, 0x9F, 0xe1, 0xff, 0x00},
 		Endpoint: "https://example.org/push/awioefioawioef",
