@@ -21,7 +21,7 @@
 
 	window.sub = pushSubscription
 
-	console.log(pushSubscription)
+	console.log(JSON.stringify(pushSubscription, null, "\t"))
 
 	fetch('/subscribe', {
 		method: 'POST',

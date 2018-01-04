@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Alexendoo/cert-notify/frontend"
 	"github.com/Alexendoo/cert-notify/store"
 	"github.com/gauntface/web-push-go/webpush"
 	"github.com/google/certificate-transparency-go/client"
@@ -38,4 +39,6 @@ func main() {
 		Key:      []byte("Secret key"),
 	}
 	fmt.Println(s.AddDomain("macleod.io", sub))
+
+	frontend.Serve()
 }
