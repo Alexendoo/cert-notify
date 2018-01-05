@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/google/certificate-transparency-go"
@@ -23,41 +24,39 @@ type Log struct {
 	URL string
 
 	c *client.LogClient
+	m sync.Mutex
 }
 
-func (log *Log) setupClient() (err error) {
+func (log *Log) setup(ctx context.Context) (err error) {
 	// TODO: not http.DefaultClient
 	log.c, err = client.New(log.URL, http.DefaultClient, jsonclient.Options{
 		PublicKeyDER: log.Key,
 	})
-
-	return
-}
-
-func (log *Log) fetchIndex(ctx context.Context) error {
-	sth, err := log.c.GetSTH(ctx)
 	if err != nil {
 		return err
 	}
+	if log.Index == 0 {
+		sth, err := log.c.GetSTH(ctx)
 
-	log.Index = int64(sth.TreeSize)
+		if err != nil {
+			return err
+		}
+
+		log.Index = int64(sth.TreeSize)
+	}
 
 	return nil
 }
 
-func (log *Log) Scan(ctx context.Context) error {
-	if log.c == nil {
-		err := log.setupClient()
-		if err != nil {
-			return err
-		}
-	}
+type entryFn = func(entry *ct.LogEntry)
 
-	if log.Index == 0 {
-		err := log.fetchIndex(ctx)
-		if err != nil {
-			return err
-		}
+func (log *Log) Scan(ctx context.Context, fn entryFn) error {
+	log.m.Lock()
+	defer log.m.Unlock()
+
+	err := log.setup(ctx)
+	if err != nil {
+		return err
 	}
 
 	delay := 5 * time.Second
@@ -68,36 +67,44 @@ func (log *Log) Scan(ctx context.Context) error {
 		case <-done:
 			return nil
 		case <-time.After(delay):
-			log.scan(ctx)
+			for log.scan(ctx, fn) {
+			}
 		}
 	}
 }
 
-func (log *Log) scan(ctx context.Context) {
+func (log *Log) scan(ctx context.Context, fn entryFn) bool {
 	sth, err := log.c.GetSTH(ctx)
 	if err != nil {
-		return
+		return false
 	}
 
 	raw, err := log.c.GetRawEntries(ctx, log.Index, int64(sth.TreeSize))
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Println(err, log.Index, int64(sth.TreeSize))
+		return false
 	}
 
-	for i, leaf := range raw.Entries {
-		index := log.Index + int64(i)
-		entry, err := ct.LogEntryFromLeaf(index, &leaf)
+	done := ctx.Done()
+	fmt.Println(len(raw.Entries), log.Index)
+	for _, leaf := range raw.Entries {
+		// exit if context is cancelled
+		select {
+		case <-done:
+			return false
+		default:
+		}
+
+		entry, err := ct.LogEntryFromLeaf(log.Index, &leaf)
 		if err != nil {
 			fmt.Println(log.URL, err)
 			continue
 		}
 
-		// TODO: decide on concurrency model for sending notifications to push
-		// services
+		fn(entry)
 
-		if entry.X509Cert != nil {
-			fmt.Println(entry.X509Cert.DNSNames)
-		}
+		log.Index++
 	}
+
+	return int64(sth.TreeSize)-log.Index > 100
 }

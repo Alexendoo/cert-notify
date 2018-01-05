@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Alexendoo/cert-notify/ctlog"
+	"github.com/google/certificate-transparency-go"
 )
 
 func debase64(encoded string) []byte {
@@ -18,6 +19,9 @@ func debase64(encoded string) []byte {
 
 	return decoded
 }
+
+// TODO:
+// add -skip flag to drop old log indexes
 
 func main() {
 	// ctClient, err := client.New("https://ct.googleapis.com/logs/argon2018", http.DefaultClient, jsonclient.Options{
@@ -39,13 +43,16 @@ func main() {
 	// frontend.Serve()
 
 	log := &ctlog.Log{
-		Key: debase64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0gBVBa3VR7QZu82V+ynXWD14JM3ORp37MtRxTmACJV5ZPtfUA7htQ2hofuigZQs+bnFZkje+qejxoyvk2Q1VaA=="),
-		URL: "https://ct.googleapis.com/logs/argon2018",
+		Key:   debase64("MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0gBVBa3VR7QZu82V+ynXWD14JM3ORp37MtRxTmACJV5ZPtfUA7htQ2hofuigZQs+bnFZkje+qejxoyvk2Q1VaA=="),
+		URL:   "https://ct.googleapis.com/logs/argon2018",
+		Index: 50560788,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err := log.Scan(ctx)
+	err := log.Scan(ctx, func(entry *ct.LogEntry) {
+		return nil
+	})
 	fmt.Println(err)
 }
